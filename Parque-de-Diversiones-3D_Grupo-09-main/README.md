@@ -4,9 +4,9 @@ Aplicación interactiva en Python y OpenGL para el curso de Computación Visual.
 
 ## Qué incluye
 
-- **Parque 3D:** tren de tres vagones sobre rieles tubulares, rueda con doce cabinas y carrusel de caballos. El terreno incorpora senderos, fuente animada, kioscos, jardín, faroles y un túnel peatonal abovedado.
-- **Laboratorio 2D:** edición de la B-spline con el ratón y demostraciones de Graham, recorte, rasterización, curvas y matrices homogéneas.
-- **Renderizado:** cámaras orbital, a bordo y por atracción, proyecciones, mapeado UV, iluminación día/noche, sombras direccionales y modos de diagnóstico.
+- **Parque 3D:** montaña rusa ampliada con curvas en S, pendientes, peraltes y tres vagones. La rueda tiene doce cabinas y el carrusel, ocho caballos. El recorrido rodea las atracciones y pasa por encima del acceso peatonal.
+- **Laboratorio 2D:** edición en planta y altura de la B-spline, perfil de elevación en vivo y demostraciones de Graham, recorte, rasterización, curvas y matrices homogéneas.
+- **Renderizado:** cámaras orbital y en primera persona desde las tres atracciones, modo inmersivo, proyecciones, mapeado UV, iluminación día/noche y sombras direccionales.
 - **Ruta de aprendizaje:** una pantalla vincula las 16 semanas con su evidencia dentro de la aplicación.
 
 ## Ejecutar en Windows
@@ -28,13 +28,15 @@ También se puede ejecutar con `python -m park3d`.
 | Tecla o acción | Resultado |
 |---|---|
 | `P`, `E`, `A`, `H` | Parque 3D, editor 2D, ruta de las 16 semanas y ayuda. |
-| Arrastrar / rueda | Orbitar y acercar la cámara en la vista 3D. |
-| Clic en una atracción / `Inicio` | Acercar la cámara a una atracción o recuperar la vista general. |
-| `C`, `Espacio`, `−` y `+` | Cámara a bordo, pausa y velocidad del vagón. |
+| Clic en una atracción o `1`, `2`, `3` | Seleccionar montaña rusa, rueda o carrusel. |
+| `C` / `Tab` | Subir o bajar de la atracción seleccionada. Con Tab, cambiar de cabina o caballo. |
+| Arrastrar / rueda del ratón | Orbitar y hacer zoom desde fuera. A bordo, arrastrar para mover la mirada. |
+| `F11` / `Inicio` | Ocultar o recuperar los paneles. Con Inicio, volver a la vista general. |
+| `Espacio`, `−` y `+` | Pausa y ajuste de velocidad del tren. |
 | `T`, `L`, `O`, `M` | Texturas, día/noche, proyección y malla. |
 | `Z`, `G` | Comparar profundidad y sombreado plano/suave. |
 | Clic en editor | Añadir punto para la cápsula convexa. |
-| Arrastrar punto ámbar | Modificar la trayectoria B-spline de la montaña rusa. |
+| Arrastrar punto ámbar / `[` y `]` en el editor | Editar la B-spline en planta o ajustar la altura del punto seleccionado. |
 | `B`, `X`, `V`, `F`, `R` | Cambiar capa del editor o transformación, mostrar recorte, alternar suavizado o restaurar el plano. |
 
 Consulta el mapeo completo en [docs/coverage.md](docs/coverage.md).
