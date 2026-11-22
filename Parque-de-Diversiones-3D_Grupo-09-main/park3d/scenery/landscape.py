@@ -31,6 +31,8 @@ IRON = (0.16, 0.24, 0.24)
 WOOD = (0.55, 0.35, 0.22)
 COPPER = (0.80, 0.52, 0.25)
 LETTERING = (0.97, 0.89, 0.70, 1)
+LAGOON = (13.6, 4.25, 3.45, 2.82)
+OVERLOOK = (14.6, 8.9)
 KIOSKS = (
     (-9.8, -2.0, (0.61, 0.33, 0.27), "BOCADOS"),
     (10.4, 7.7, (0.36, 0.51, 0.45), "RECUERDOS"),
@@ -43,6 +45,8 @@ WALKERS = (
     ((2.86, -2.80), (5.53, -6.15), (0.45, 0.30, 0.43), (0.53, 0.32, 0.21)),
     ((-3.94, 4.03), (-5.44, 5.52), (0.40, 0.60, 0.53), (0.81, 0.57, 0.39)),
     ((5.62, 5.51), (8.84, 8.12), (0.76, 0.72, 0.59), (0.72, 0.51, 0.36)),
+    ((11.12, 9.12), (15.54, 10.72), (0.49, 0.53, 0.35), (0.79, 0.52, 0.35)),
+    ((-8.36, 2.87), (-10.31, 2.37), (0.49, 0.26, 0.29), (0.72, 0.49, 0.38)),
 )
 
 
@@ -55,7 +59,7 @@ class LandscapeMixin:
             name: self._land_texture(name)
             for name in ("grass", "stone", "brick")
         }
-        for label in ("PARQUE VISUAL", *(kiosk[3] for kiosk in KIOSKS)):
+        for label in ("PARQUE VISUAL", "MIRADOR", *(kiosk[3] for kiosk in KIOSKS)):
             self._text_texture(label, 30, LETTERING)
 
     @staticmethod
@@ -107,7 +111,8 @@ class LandscapeMixin:
 
     @staticmethod
     def _terrain_height(x: float, z: float) -> float:
-        wind = max(0, min(1.0, (max(abs(x), abs(z)) - 15) / 13))
+        margin = max(abs(x) - 21, -z - 19, z - 15)
+        wind = max(0, min(1.0, margin / 13))
         rolling = 0.7 + 1.25 * sin(x * 0.18 + z * 0.08) + 0.9 * cos(z * 0.20 + x * 0.05)
         return -0.025 + wind * wind * rolling
 
@@ -169,18 +174,26 @@ class LandscapeMixin:
             (2.3, [(1.0, -1), (2.8, -2.0), (1.5, -6.8), (6.9, -7.5)]),
             (1.9, [(2.4, 1.0), (6.0, 1.4), (6.5, 7.8), (10.5, 8.8)]),
             (1.55, [(-3, -1), (-5, -3), (-7, -2.1), (-10.5, -2)]),
-            (1.05, [(-7.3, -2.5), (-7.6, -2.0), (-7.6, -1.7), (-7.6, -1.4)]),
+            (1.4, [(-2.2, 0.43), (-5.2, 2.15), (-8.9, 3.45), (-10.36, 2.14)]),
             (1.6, [(-1.5, -2.2), (-3.6, -4.9), (-5.5, -6.4), (-8.8, -8.4)]),
+            (1.60, [(10.4, 8.8), (12.8, 9.80), (14.1, 11.2), (16.35, 10.4)]),
+            (1.45, [(16.35, 10.4), (18.35, 9.4), (18.4, 6.5), (18.55, 3.1)]),
+            (1.26, [(-8.8, -8.4), (-8.7, -11.1), (-6.9, -11.2), (-3.7, -11.25)]),
+            (1.22, [(-3.7, -11.25), (-0.1, -11.2), (1.95, -9.6), (5.26, -8.02)]),
         )
         ribbons = [(width, sample_bezier(points, 25)) for width, points in branches]
         for width, points in ribbons:
             glColor3f(0.46, 0.42, 0.32)
             self._ribbon(points, width + 0.24, 0.012)
         self._disk(0, 0.013, -0.2, 4.18, 3.75, (0.43, 0.37, 0.29))
+        self._disk(-3.6, 0.013, -11.18, 2.00, 1.19, (0.43, 0.37, 0.29))
+        self._disk(18.55, 0.013, 3.1, 1.28, 1.24, (0.43, 0.37, 0.29))
         for width, points in ribbons:
             self._ground_material("stone", PATH)
             self._ribbon(points, width, 0.021)
         self._disk(0, 0.025, -0.2, 4.05, 3.62, PATH)
+        self._disk(-3.6, 0.025, -11.18, 1.88, 1.08, PATH)
+        self._disk(18.55, 0.025, 3.1, 1.17, 1.11, PATH)
         glDisable(GL_TEXTURE_2D)
 
     def _contact_shadows(self) -> None:
@@ -189,7 +202,8 @@ class LandscapeMixin:
             (-2.33, 13.04, 0.76, 0.72), (2.33, 13.04, 0.76, 0.72),
             (-7.1, 5.5, 2.78, 2.78), (7.0, -7.0, 2.6, 1.4),
             (-4.1, 1.6, 1.24, 0.84), (3.8, -3.3, 1.20, 0.92),
-            (5.8, 6.3, 1.30, 0.90), (9.7, -2.8, 1.22, 0.97),
+            (3.3, 7.0, 1.30, 0.90), (8.8, -3.4, 1.22, 0.97),
+            (*OVERLOOK, 2.5, 1.8), (16.9, 11.4, 1.20, 1.10),
             *((x, z, 1.9, 1.55) for x, z, _, _ in KIOSKS),
         )
         glDisable(GL_LIGHTING)
@@ -233,28 +247,34 @@ class LandscapeMixin:
             self._sphere(cx, cy, cz, radius, radius * 1.08, radius, palette[index % 4])
 
     def _planting(self) -> None:
-        trees = [
-            (-12, -8, 1.50), (-13, -4, 1.36), (-12.5, 1.3, 1.10), (-12.4, 5.6, 1.13),
-            (-11, 10.4, 1.42), (-8.0, 12.1, 1.09), (-5.3, 11.6, 0.82),
-            (5.0, 11.9, 0.84), (9.8, 10.8, 1.0), (12.5, 9.2, 1.08), (12.4, 2.9, 1.12),
-            (13, -3.7, 1.35), (12.5, -9.8, 1.42), (9.6, -12, 1.46), (4.0, -12.5, 1.21),
-            (-1.8, -11.9, 1.18), (-5.3, -11.7, 1.5), (-9.3, -11.2, 1.40),
-            (-4.1, 1.6, 0.74), (3.8, -3.3, 0.78), (5.8, 6.3, 0.84), (9.7, -2.8, 0.83),
-        ]
+        trees = (
+            (-10.75, -7.42, 1.42), (-15.7, -4.0, 1.36), (-15.65, 3.7, 1.10), (-14.2, 6.3, 1.13),
+            (-11, 10.4, 1.42), (-8.0, 12.1, 1.09), (-5.3, 12.64, 0.96),
+            (5.0, 13.05, 0.90), (9.8, 10.8, 1.0), (16.9, 11.4, 1.08), (19.15, 6.2, 0.98),
+            (12.8, -6.5, 1.35), (12.5, -9.8, 1.42), (9.1, -10.9, 1.28), (3.5, -10.6, 0.95),
+            (-1.8, -12.20, 1.18), (-6.1, -12.43, 1.34), (-9.3, -11.2, 1.32),
+            (-4.1, 1.6, 0.74), (3.8, -3.3, 0.78), (3.3, 7.0, 0.84), (8.8, -3.4, 0.83),
+            (-16.7, -8.1, 1.30), (-16.2, -11.8, 1.15), (-13.4, -15.9, 1.44), (-7.4, -17.5, 1.10),
+            (2.0, -17.0, 1.26), (7.4, -16.9, 0.96), (11.1, -17.35, 1.22),
+            (15.25, -16.65, 1.27), (18.45, -13.6, 0.97), (19.25, -7.7, 0.97),
+            (18.7, -2.4, 1.27), (18.1, 0.52, 0.92), (11.3, 0.9, 0.83),
+        )
         for index, (x, z, scale) in enumerate(trees):
             self._orchard_tree(x, z, scale, index + 20)
         rng = Random(190)
         for index in range(47):
             angle = index * 2 * pi / 47
-            radius = rng.uniform(21, 37)
+            radius = rng.uniform(24, 42)
             x, z = radius * cos(angle), radius * sin(angle)
             if x > -8 and z > 13:
                 continue
             self._orchard_tree(x, z, rng.uniform(0.9, 1.7), index + 120)
         for index, (x, z, size) in enumerate((
-            (-4, 10.8, 1.5), (4, 10.8, 1.5), (-3.5, 5.0, 1.3), (2.7, 4.3, 1.4),
-            (7.3, 7.7, 1.25), (8.7, 6.3, 1.0), (-4, -3.0, 1.1), (2.0, -8.5, 1.3),
-            (-9, -5.5, 1.6), (5.7, -10.6, 1.7), (9.3, 1.2, 1.2),
+            (-4, 11.95, 1.5), (4, 12.05, 1.5), (-3.5, 5.0, 1.3), (2.7, 4.3, 1.4),
+            (9, 7.7, 1.25), (8.7, 6.3, 1.0), (-4, -3.0, 1.1), (2.0, -8.5, 1.3),
+            (-9, -5.5, 1.6), (5.7, -10.6, 1.7), (10.0, 3.0, 1.0),
+            (-4.0, -10.3, 1.26), (-3.8, -12.25, 1.45), (17.8, 8.8, 1.31),
+            (17.0, 10.0, 1.15), (19.35, 3.6, 1.14), (17.55, 0.4, 1.4),
         )):
             self._disk(x, 0.031, z, size * 0.63, size * 0.31, (0.42, 0.34, 0.25), 18)
             self._disk(x, 0.039, z, size * 0.56, size * 0.25, (0.23, 0.19, 0.12), 18)
@@ -266,11 +286,11 @@ class LandscapeMixin:
                 self._sphere(bx, rng.uniform(0.10, 0.25), bz, 0.067, 0.066, 0.067, petal, 7)
 
     def _fences(self) -> None:
-        runs = (((-13.8, -12.9), (13.8, -12.9)), ((-13.8, -12.9), (-13.8, 12.9)),
-                ((13.8, -12.9), (13.8, 12.9)), ((-13.8, 12.9), (-2.5, 12.9)),
-                ((2.5, 12.9), (13.8, 12.9)))
-        for (x, z), (tx, tz) in runs:
-            count = round(hypot(tx - x, tz - z) / 1.45)
+        perimeter = ((-2.5, 12.9), (-5.0, 13.9), (-15.6, 13.9), (-18.0, 11.6), (-18.0, -15.3),
+                     (-15.5, -18.4), (16.4, -18.4), (20.0, -15.0), (20.0, 11.6), (17.6, 13.9),
+                     (5.5, 13.9), (2.5, 12.9))
+        for (x, z), (tx, tz) in zip(perimeter, perimeter[1:]):
+            count = max(1, round(hypot(tx - x, tz - z) / 1.45))
             for y in (0.40, 0.69):
                 self.tube((x, y, z), (tx, y, tz), 0.022, IRON, 5)
             for index in range(count + 1):
@@ -308,6 +328,96 @@ class LandscapeMixin:
         glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, (0, 0, 0, 1))
         self._sphere(x, 2.36, z, 0.14, 0.067, 0.14, IRON, 9)
 
+    def _lagoon(self, x: float, z: float, rx: float, rz: float) -> None:
+        """Piedra, grava y agua en anillos de un contorno irregular compartido."""
+        count = 48
+        shore = []
+        for index in range(count):
+            theta = -2 * pi * index / count
+            irregular = 1 + 0.061 * sin(3 * theta + 0.8) + 0.073 * cos(5 * theta - 0.7)
+            shore.append((irregular * rx * cos(theta), irregular * rz * sin(theta)))
+
+        def ring_vertex(point, scale, height):
+            px, pz = point
+            glTexCoord2f(px * 0.7, pz * 0.7)
+            glVertex3f(x + px * scale, height, z + pz * scale)
+
+        self._ground_material("stone", (0.78, 0.72, 0.60))
+        glBegin(GL_TRIANGLE_FAN)
+        glNormal3f(0, 1, 0)
+        ring_vertex((0, 0), 1, 0.004)
+        for point in (*shore, shore[0]):
+            ring_vertex(point, 1.09, 0.004)
+        glEnd()
+        glDisable(GL_TEXTURE_2D)
+
+        glBegin(GL_TRIANGLE_FAN)
+        glNormal3f(0, 1, 0)
+        glColor3f(0.19, 0.37, 0.40)
+        ring_vertex((0, 0), 1, 0.020)
+        for index, point in enumerate((*shore, shore[0])):
+            light = 0.5 + 0.5 * cos(2 * pi * index / count)
+            glColor3f(0.30 + 0.11 * light, 0.47 + 0.10 * light, 0.47 + 0.075 * light)
+            ring_vertex(point, 1, 0.020)
+        glEnd()
+
+        rng = Random(327)
+        for index, (dx, dz) in enumerate(shore):
+            if index not in range(8, 14) and rng.random() < 0.60:
+                scale = rng.uniform(0.10, 0.29)
+                gray = rng.uniform(0.32, 0.50)
+                self._sphere(x + dx, scale * 0.22, z + dz, scale * 1.65, scale * 0.62,
+                             scale, (gray, gray * 1.03, gray * 0.92), 7)
+            if index % 7 in (0, 1) and index not in range(8, 14):
+                for blade in range(5):
+                    px, pz = x + dx + rng.uniform(-0.20, 0.20), z + dz + rng.uniform(-0.16, 0.16)
+                    height = rng.uniform(0.22, 0.43)
+                    self.tube((px, 0.025, pz), (px + 0.065, height, pz - 0.03), 0.018,
+                              (0.40 + blade * 0.023, 0.47, 0.23), 5)
+
+    def _overlook(self, x: float, z: float) -> None:
+        """Mirador de madera con bancos y un tejado de cuatro aguas."""
+        glPushMatrix()
+        glTranslatef(x, 0, z)
+        self.box(0, 0.12, 0, 1.92, 0.12, 1.39, (0.40, 0.29, 0.22))
+        for index in range(16):
+            shade = 0.55 + 0.019 * (index * 3 % 5)
+            self.box(0, 0.248, -1.29 + index * 0.171, 1.90, 0.022, 0.080,
+                     (shade, 0.66 * shade, 0.42 * shade))
+        self.box(0, 0.114, 1.51, 0.82, 0.086, 0.17, WOOD)
+        for dx in (-1.52, 1.52):
+            glPushMatrix()
+            glTranslatef(0, 0.27, 0)
+            self._bench(dx * 0.55, -0.80, 0)
+            glPopMatrix()
+            for dz in (-1.06, 1.06):
+                self.box(dx, 1.27, dz, 0.073, 1.03, 0.076, WOOD)
+                self.box(dx, 0.295, dz, 0.105, 0.095, 0.108, IRON)
+                self.tube((dx, 1.89, dz), (dx * 0.71, 2.22, dz), 0.045, WOOD, 5)
+            for height in (0.66, 0.98):
+                self.box(dx, height, 0, 0.034, 0.034, 1.06, IRON)
+        for height in (0.66, 0.98):
+            self.box(0, height, -1.06, 1.52, 0.034, 0.034, IRON)
+        self.box(0, 2.29, 0, 1.69, 0.095, 1.23, IRON)
+        roof = ((-1.99, 2.38, 1.39), (1.99, 2.38, 1.39),
+                (1.99, 2.38, -1.39), (-1.99, 2.38, -1.39))
+        glBegin(GL_TRIANGLES)
+        for index, point in enumerate(roof):
+            nx, nz = ((0, 0.39), (0.3, 0), (0, -0.39), (-0.3, 0))[index]
+            factor = 0.96 - 0.08 * (index % 2)
+            glColor3f(0.30 * factor, 0.38 * factor, 0.34 * factor)
+            glNormal3f(nx, 0.91, nz)
+            glVertex3f(*point)
+            glVertex3f(*roof[(index + 1) % 4])
+            glVertex3f(0, 2.99, 0)
+        glEnd()
+        for point in roof:
+            self.tube(point, (0, 3.00, 0), 0.026, (0.45, 0.47, 0.37), 5)
+        self._sphere(0, 3.05, 0, 0.059, 0.11, 0.059, COPPER, 8)
+        self.box(0, 2.21, 1.26, 0.91, 0.12, 0.030, IRON)
+        self.world_label("MIRADOR", 0, 2.205, 1.298, 1.26, LETTERING)
+        glPopMatrix()
+
     def _fountain(self) -> None:
         x, z = 0.0, -0.63
         self.cylinder(x, 0.02, z, 1.42, 0.18, (0.45, 0.43, 0.39), 36)
@@ -319,8 +429,9 @@ class LandscapeMixin:
         self._sphere(x, 0.97, z, 0.55, 0.12, 0.55, IVORY, 16)
         self._disk(x, 1.049, z, 0.44, 0.44, (0.43, 0.64, 0.64), 26)
         self.cylinder(x, 1.04, z, 0.065, 0.22, COPPER, 10)
+
     def draw_water(self, phase: float) -> None:
-        """Gotas que recorren parábolas desde los surtidores hacia el estanque."""
+        """Gotas de la fuente y reflejos que se desplazan en la laguna."""
         glBegin(GL_TRIANGLES)
         glNormal3f(0, 1, 0)
         for direction in range(10):
@@ -336,6 +447,24 @@ class LandscapeMixin:
                 glVertex3f(x - az * 0.014, y, z + ax * 0.014)
                 glVertex3f(x + 0.045 * ax, y + 0.065 * (1 - 2 * t), z + 0.045 * az)
         glEnd()
+
+        x, z, rx, rz = LAGOON
+        glDisable(GL_LIGHTING)
+        glBegin(GL_QUADS)
+        for index in range(25):
+            angle = index * 2.4
+            radius = 0.74 * ((index + 1) / 25) ** 0.5
+            px, pz = x + rx * radius * cos(angle), z + rz * radius * sin(angle)
+            swell = 0.5 + 0.5 * sin(phase * 2 * pi + index * 0.83)
+            span = 0.10 + 0.20 * swell
+            opacity = (0.11 if self.day_mode else 0.048) * swell
+            glColor4f(0.74, 0.87, 0.86, opacity)
+            glVertex3f(px - span, 0.027, pz - 0.013)
+            glVertex3f(px - span * 0.83, 0.027, pz + 0.026)
+            glVertex3f(px + span, 0.027, pz + 0.015)
+            glVertex3f(px + span * 0.94, 0.027, pz - 0.004)
+        glEnd()
+        glEnable(GL_LIGHTING)
 
     def draw_visitors(self, seconds: float) -> None:
         """Figuras pequeñas con pasos alternos que recorren los senderos."""
@@ -488,19 +617,24 @@ class LandscapeMixin:
         glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 18)
         self._terrain()
         self._paths()
+        self._lagoon(*LAGOON)
         self._contact_shadows()
         self._fences()
         self._planting()
         self._fountain()
         self._pedestrian_arch()
         self._gate()
+        self._overlook(*OVERLOOK)
         for x, z, color, label in KIOSKS:
             self._kiosk(x, z, color, label)
         for x, z, angle in ((-2.75, 2.25, 125), (2.65, -1.95, -55), (-2.70, -2.06, 42),
-                            (3.56, 6.72, -30), (-8.76, -0.71, 0), (6.51, -5.12, 150)):
+                            (3.95, 6.34, -30), (-8.76, -0.71, 0), (6.51, -5.12, 150),
+                            (-4.56, -11.3, -60), (-2.61, -11.27, 60), (18.99, 2.62, -31),
+                            (17.54, 7.05, -58)):
             self._bench(x, z, angle)
-        for x, z in ((-2.12, 11.07), (2.12, 11.07), (-1.97, 6.48), (1.94, 5.21),
+        for x, z in ((-2.12, 12.35), (2.12, 12.35), (-1.97, 6.48), (1.94, 5.21),
                      (-5.1, 3.58), (-3.54, -2.82), (2.84, -4.34), (7.91, -4.93),
-                     (8.62, 7.05), (-8.9, -1.05), (-7.4, -7.93)):
+                     (8.92, 7.08), (-8.9, -1.05), (-7.4, -7.93), (-8.2, 3.78),
+                     (11.5, 9.05), (16.2, 11.1), (18.15, 5.8), (-5.65, -10.87)):
             self._lamppost(x, z)
         glPopAttrib()

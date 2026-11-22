@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from math import atan2, cos, degrees, hypot, radians, sin, tau
+from math import cos, degrees, hypot, sin, tau
 from typing import TYPE_CHECKING, Callable
 
 from OpenGL.GL import (
@@ -30,6 +30,16 @@ from OpenGL.GL import (
 )
 from OpenGL.GLU import gluSphere
 
+from park3d.rides.seats import (
+    CAROUSEL_CENTER,
+    CAROUSEL_HORSES,
+    WHEEL_CENTER,
+    WHEEL_GONDOLAS,
+    WHEEL_RADIUS,
+    carousel_horse_frame,
+    wheel_gondola_anchor,
+)
+
 if TYPE_CHECKING:
     from park3d.scene.park import ParkModel, Point3
 
@@ -49,9 +59,6 @@ GONDOLA_COLORS = (
     (0.69, 0.43, 0.14),
     (0.33, 0.35, 0.55),
 )
-WHEEL_CENTER = (7.0, 3.65, -7.0)
-WHEEL_RADIUS = 2.62
-CAROUSEL_CENTER = (-7.1, 0.0, 5.5)
 
 
 class AttractionsMixin:
@@ -125,13 +132,23 @@ class AttractionsMixin:
         track = park.track_3d[:-1]
         rails: list[list[Point3]] = [[], []]
         spine = []
+        bridge_sections = []
         for i, (x, y, z) in enumerate(track):
-            previous, following = track[i - 1], track[(i + 1) % len(track)]
-            dx, dz = following[0] - previous[0], following[2] - previous[2]
-            heading = atan2(dx, dz)
-            for side, points in zip((-0.34, 0.34), rails):
-                points.append((x + cos(heading) * side, y, z - sin(heading) * side))
-            spine.append((x, y - 0.26, z))
+            progress = park.track_distances[i] / park.track_length
+            heading, pitch = park.track_direction(progress)
+            bank = park.track_bank(progress)
+            sy, cy = sin(heading), cos(heading)
+            sp, cp = sin(pitch), cos(pitch)
+            sb, cb = sin(bank), cos(bank)
+            # Ejes locales después de aplicar el rumbo, la pendiente y el peralte.
+            right = (cy * cb - sy * sp * sb, cp * sb, -sy * cb - cy * sp * sb)
+            up = (-cy * sb - sy * sp * cb, cp * cb, sy * sb - cy * sp * cb)
+            center = (x, y, z)
+            for offset, points in zip((-0.34, 0.34), rails):
+                points.append(tuple(value + offset * axis for value, axis in zip(center, right)))
+            spine.append(tuple(value - 0.26 * axis for value, axis in zip(center, up)))
+            if i % 5 == 0 and abs(x) < 2.45 and 8.0 < z < 10.8:
+                bridge_sections.append((x, y, z, heading))
         for rail in rails:
             self._closed_ride_pipe(rail, 0.062, TERRACOTTA)
         self._closed_ride_pipe(spine, 0.103, (0.42, 0.15, 0.105))
@@ -145,6 +162,7 @@ class AttractionsMixin:
             glTranslatef(x, y, z)
             glRotatef(degrees(heading), 0, 1, 0)
             glRotatef(-degrees(pitch), 1, 0, 0)
+            glRotatef(degrees(park.track_bank(progress)), 0, 0, 1)
             self.box(0, -0.09, 0, 0.43, 0.038, 0.048, STEEL)
             self.tube((-0.31, -0.10, 0), (0, -0.255, 0), 0.034, TERRACOTTA, 5)
             self.tube((0.31, -0.10, 0), (0, -0.255, 0), 0.034, TERRACOTTA, 5)
@@ -154,6 +172,8 @@ class AttractionsMixin:
         for i in range(frames):
             progress = (i + 0.27) / frames
             x, y, z = park.track_position(progress)
+            if abs(x) < 1.8 and 8.0 < z < 10.8:
+                continue
             heading, _ = park.track_direction(progress)
             glPushMatrix()
             glTranslatef(x, 0, z)
@@ -167,12 +187,28 @@ class AttractionsMixin:
                 self.tube((side * base, 0.26, 0), (-side * 0.40, top * 0.73, 0), 0.032, STEEL, 5)
             glPopMatrix()
 
+        self._coaster_bridge(bridge_sections)
         self._coaster_platform(park)
 
+    def _coaster_bridge(self, sections) -> None:
+        """Un truss corto cruza sobre la bóveda sin columnas en el sendero."""
+        for (x, y, z, heading), (nx, ny, nz, next_heading) in zip(sections, sections[1:]):
+            if hypot(nx - x, nz - z) > 1:
+                continue
+            for side in (-0.43, 0.43):
+                a = (x + cos(heading) * side, y - 0.29, z - sin(heading) * side)
+                b = (nx + cos(next_heading) * side, ny - 0.29, nz - sin(next_heading) * side)
+                below_a = (a[0], a[1] - 0.38, a[2])
+                below_b = (b[0], b[1] - 0.38, b[2])
+                for start, end in ((a, b), (below_a, below_b), (a, below_b), (a, below_a)):
+                    self.tube(start, end, 0.038, SUPPORT, 6)
+            self.tube((x - cos(heading) * 0.43, y - 0.67, z + sin(heading) * 0.43),
+                      (x + cos(heading) * 0.43, y - 0.67, z - sin(heading) * 0.43), 0.038, SUPPORT, 6)
+
     def _coaster_platform(self, park: ParkModel) -> None:
-        """Andén y escalera del tramo bajo, al lado externo de los rieles."""
-        x, y, z = park.track_position(0.875)
-        heading, _ = park.track_direction(0.875)
+        """Andén y escalera del tramo bajo junto al acceso del parque."""
+        x, y, z = park.track_position(park.station_progress)
+        heading, _ = park.track_direction(park.station_progress)
         deck = y + 0.07
         timber = (0.37, 0.24, 0.15)
         oak = (0.62, 0.43, 0.253)
@@ -236,6 +272,8 @@ class AttractionsMixin:
                 self._ride_sphere(x, 0.23, 0.51, (0.069, 0.047, 0.025), IVORY)
 
     def draw_coaster(self, park: ParkModel) -> None:
+        if park.track_length < 1e-6:
+            return
         if getattr(self, "_coaster_track", None) is not park.track_3d:
             display_lists = getattr(self, "_ride_lists", {})
             old = display_lists.pop("coaster_track", None)
@@ -251,6 +289,7 @@ class AttractionsMixin:
             glTranslatef(*point)
             glRotatef(degrees(heading), 0, 1, 0)
             glRotatef(-degrees(pitch), 1, 0, 0)
+            glRotatef(degrees(park.track_bank(progress)), 0, 0, 1)
             self._ride_list("lead_car" if i == 0 else "trailer", lambda: self._coaster_car(i == 0))
             glPopMatrix()
 
@@ -273,33 +312,38 @@ class AttractionsMixin:
             ring = [(WHEEL_RADIUS * cos(i * tau / 72), WHEEL_RADIUS * sin(i * tau / 72), z) for i in range(72)]
             self._closed_ride_pipe(ring, 0.078, RIM, plane="xy")
             self._ride_sphere(0, 0, z * 1.32, (0.30, 0.30, 0.12), GOLD)
-        for i in range(12):
-            theta = i * tau / 12
+        for i in range(WHEEL_GONDOLAS):
+            theta = i * tau / WHEEL_GONDOLAS
             x, y = WHEEL_RADIUS * cos(theta), WHEEL_RADIUS * sin(theta)
             for z in (-0.24, 0.24):
                 self.tube((0, 0, z), (x, y, z), 0.036, STEEL, 6)
             self.tube((x, y, -0.24), (x, y, 0.42), 0.042, GOLD, 7)
             for j in range(3):
-                a = theta + (j + 0.5) * tau / 36
+                a = theta + (j + 0.5) * tau / (3 * WHEEL_GONDOLAS)
                 u, v = WHEEL_RADIUS * cos(a), WHEEL_RADIUS * sin(a)
                 self._ride_sphere(u, v, 0.285, (0.045, 0.045, 0.040), IVORY, 8)
 
     def _wheel_lights(self) -> None:
-        for i in range(36):
-            angle = (i + 0.5) * tau / 36
+        for i in range(3 * WHEEL_GONDOLAS):
+            angle = (i + 0.5) * tau / (3 * WHEEL_GONDOLAS)
             x, y = WHEEL_RADIUS * cos(angle), WHEEL_RADIUS * sin(angle)
             self._ride_sphere(x, y, 0.308, (0.044, 0.044, 0.036), IVORY, 8)
 
     def _wheel_gondola(self, paint) -> None:
-        self.tube((0, -0.043, 0), (0, -0.27, 0), 0.034, STEEL, 7)
-        self._ride_sphere(0, -0.27, 0, (0.275, 0.085, 0.23), IVORY)
-        self.box(0, -0.430, 0, 0.239, 0.145, 0.186, paint)
-        self.box(0, -0.566, 0, 0.254, 0.043, 0.197, STEEL)
+        self.tube((0, -0.035, 0), (0, -0.18, 0), 0.038, STEEL, 7)
+        self._ride_sphere(0, -0.213, 0, (0.285, 0.058, 0.253), IVORY)
+        self.box(0, -0.258, 0, 0.247, 0.026, 0.219, paint)
+        self.box(0, -0.642, 0, 0.247, 0.037, 0.215, STEEL)
+        self.box(0, -0.60, 0, 0.216, 0.012, 0.185, (0.59, 0.51, 0.39))
         for side in (-1, 1):
-            self.box(0, -0.404, side * 0.189, 0.191, 0.075, 0.012, GLASS)
-            self.box(side * 0.242, -0.404, 0, 0.012, 0.075, 0.118, GLASS)
-            self.box(0, -0.404, side * 0.203, 0.013, 0.078, 0.008, IVORY)
-            self.box(0, -0.511, side * 0.192, 0.190, 0.011, 0.008, GOLD)
+            self.box(0, -0.567, side * 0.207, 0.245, 0.046, 0.018, paint)
+            self.box(0, -0.518, side * 0.208, 0.244, 0.010, 0.021, GOLD)
+            self.box(side * 0.232, -0.567, 0, 0.016, 0.046, 0.190, paint)
+            self.box(side * 0.232, -0.518, 0, 0.021, 0.010, 0.190, GOLD)
+            for depth in (-0.199, 0.199):
+                self.box(side * 0.231, -0.408, depth, 0.017, 0.125, 0.017, IVORY)
+        self.box(0, -0.544, -0.129, 0.188, 0.027, 0.060, RUBBER)
+        self.box(0, -0.494, -0.177, 0.188, 0.049, 0.019, GLASS)
 
     def draw_wheel(self, park: ParkModel) -> None:
         cx, cy, cz = WHEEL_CENTER
@@ -315,14 +359,13 @@ class AttractionsMixin:
             self._ride_list("wheel_lights", self._wheel_lights)
             glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, (0.0, 0.0, 0.0, 1.0))
         glPopMatrix()
-        for i in range(12):
-            theta = radians(park.wheel_angle) + i * tau / 12
+        glPopMatrix()
+        for i in range(WHEEL_GONDOLAS):
             index = i % len(GONDOLA_COLORS)
             glPushMatrix()
-            glTranslatef(WHEEL_RADIUS * cos(theta), WHEEL_RADIUS * sin(theta), 0.32)
+            glTranslatef(*wheel_gondola_anchor(park.wheel_angle, i))
             self._ride_list(f"gondola_{index}", lambda: self._wheel_gondola(GONDOLA_COLORS[index]))
             glPopMatrix()
-        glPopMatrix()
 
     def _carousel_ground(self) -> None:
         self.cylinder(0, 0.01, 0, 2.29, 0.16, (0.51, 0.45, 0.36), 48)
@@ -356,7 +399,7 @@ class AttractionsMixin:
         self._ride_sphere(0, 3.43, 0, (0.17, 0.16, 0.17), GOLD)
         self.cylinder(0, 3.42, 0, 0.043, 0.34, GOLD, 10)
         self._ride_sphere(0, 3.78, 0, (0.065, 0.076, 0.065), GOLD)
-        for i in range(8):
+        for i in range(CAROUSEL_HORSES):
             a = i * tau / 8
             self.cylinder(1.40 * cos(a), 0.38, 1.40 * sin(a), 0.028, 2.41, GOLD, 8)
 
@@ -409,17 +452,17 @@ class AttractionsMixin:
             glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, (0.88, 0.57, 0.26, 1.0))
             self._ride_list("carousel_lights", self._carousel_lights)
             glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, (0.0, 0.0, 0.0, 1.0))
+        glPopMatrix()
         for i in range(8):
-            a = i * tau / 8
+            position, yaw = carousel_horse_frame(park.carousel_angle, i)
             glPushMatrix()
-            glTranslatef(1.40 * cos(a), 1.19 + 0.17 * sin(radians(park.carousel_angle * 3) + a), 1.40 * sin(a))
-            glRotatef(-degrees(a), 0, 1, 0)
+            glTranslatef(*position)
+            glRotatef(degrees(yaw), 0, 1, 0)
             self._ride_list(
                 f"horse_{i % 2}",
                 lambda: self._carousel_horse(IVORY if i % 2 else (0.76, 0.54, 0.38), CANOPY if i % 2 else GONDOLA_COLORS[1]),
             )
             glPopMatrix()
-        glPopMatrix()
 
     def _carousel_lights(self) -> None:
         for i in range(24):

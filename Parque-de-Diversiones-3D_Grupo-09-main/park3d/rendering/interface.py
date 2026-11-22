@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from math import cos, pi, sin
 
+from park3d.scene.park import DEFAULT_RIDE_SPEED
+
 INK = (0.062, 0.100, 0.099, 1)
 DEEP = (0.043, 0.075, 0.074, 1)
 PANEL = (0.082, 0.131, 0.124, 1)
@@ -19,9 +21,9 @@ NAVIGATION = (("park", "Parque 3D", "P"), ("editor", "Editor 2D", "E"),
               ("lessons", "Temario", "A"), ("help", "Ayuda", "H"))
 
 RIDES = (
-    ("Montaña rusa", "Rieles de acero · curva B-spline", CORAL, "coaster"),
-    ("Rueda panorámica", "Cabinas suspendidas", MINT, "wheel"),
-    ("Carrusel", "Caballos y cubierta festoneada", GOLD, "carousel"),
+    ("Montaña rusa", "Circuito del valle · B-spline", CORAL, "coaster"),
+    ("Rueda panorámica", "Viaja en una cabina suspendida", MINT, "wheel"),
+    ("Carrusel", "Monta uno de los ocho caballos", GOLD, "carousel"),
 )
 
 LESSONS = (
@@ -30,10 +32,10 @@ LESSONS = (
     ("Rasterización", "DDA, Bresenham y punto medio"),
     ("Atributos de dibujo", "Relleno, grosor y antialiasing"),
     ("Matrices homogéneas", "Transformaciones 2D"),
-    ("Cámara y espacio 3D", "Vistas orbital y a bordo"),
+    ("Cámara y espacio 3D", "Cámaras a bordo en tres atracciones"),
     ("Proyecciones", "Perspectiva y ortográfica"),
     ("Integración 2D", "Editor y recorte Cohen–Sutherland"),
-    ("Curvas y continuidad", "B-spline cúbica del circuito"),
+    ("Curvas y continuidad", "Circuito B-spline y perfil de altura"),
     ("Superficies y curvas", "Bézier, mallas y fractal de Koch"),
     ("Representación de fronteras", "Caras y normales de las casetas"),
     ("Sólidos constructivos", "Cavidad del túnel"),
@@ -59,9 +61,9 @@ class InterfaceMixin:
         for index, (action, label, key) in enumerate(NAVIGATION):
             yield action, label, key, (start + index * 104, 19, 100, 36)
 
-    def _park_items(self):
+    def _park_items(self, rider_camera=False):
         left, width = self.scene_width + 17, self.width - self.scene_width - 34
-        if self.selected_ride:
+        if self.selected_ride is not None or rider_camera:
             yield "overview", (left, 123, width, 31)
         for index in range(len(RIDES)):
             yield f"ride{index}", (left, 163 + index * 64, width, 55)
@@ -71,10 +73,10 @@ class InterfaceMixin:
         yield "slower", (self.width - 94, 547, 34, 32)
         yield "faster", (self.width - 52, 547, 34, 32)
 
-    def action_at(self, position, view):
+    def action_at(self, position, view, rider_camera=False):
         items = [(name, bounds) for name, _, _, bounds in self._navigation_items()]
         if view == "park":
-            items += list(self._park_items())
+            items += list(self._park_items(rider_camera))
         x, y = position
         return next((name for name, (left, top, width, height) in items
                      if left <= x < left + width and top <= y < top + height), None)
@@ -126,12 +128,12 @@ class InterfaceMixin:
         self.rect(panel_x, self.header_height, self.width - panel_x, self.height - self.header_height, INK)
         self.rect(panel_x, self.header_height, 1, self.height - self.header_height, LINE)
         self.text("Atracciones", panel_x + 17, 94, 23, PAPER)
-        if self.selected_ride is None:
-            self.text("Selecciona una para acercarte.", panel_x + 17, 130, 14, MUTED)
+        if self.selected_ride is None and not rider_camera:
+            self.text("Elige una atracción y pulsa C.", panel_x + 17, 130, 14, MUTED)
         self.text("Vista y simulación", panel_x + 17, 355, 20, PAPER)
         settings = {
             "overview": ("‹  Vista general", ""),
-            "camera": ("A bordo" if rider_camera else "Panorámica", "C"),
+            "camera": ("Bajar" if rider_camera else "Subir", "C"),
             "lighting": ("Día" if self.day_mode else "Noche", "L"),
             "projection": ("Perspectiva" if self.perspective or rider_camera else "Ortográfica", "O"),
             "texture": ("Texturas" if self.show_texture else "Color plano", "T"),
@@ -140,28 +142,29 @@ class InterfaceMixin:
             "slower": ("−", ""),
             "faster": ("+", ""),
         }
-        for action, (x, y, w, h) in self._park_items():
+        for action, (x, y, w, h) in self._park_items(rider_camera):
             if action.startswith("ride"):
                 index = int(action[-1])
                 name, detail, color, icon = RIDES[index]
-                active = self.selected_ride == index
+                active = self.selected_ride == index or rider_camera and self.onboard_ride == index
                 self.rect(x, y, w, h, TILE if active else PANEL)
                 self._outline(x, y, w, h, color if active else LINE)
                 self._ride_icon(icon, x + 22, y + 27, color)
                 self.text(name, x + 41, y + 7, 16, PAPER)
                 self.text(detail, x + 41, y + 29, 12, MUTED)
+                self.text(str(index + 1), x + w - 17, y + 11, 11, color)
             else:
                 label, key = settings[action]
-                self.rect(x, y, w, h, PANEL)
-                self._outline(x, y, w, h)
+                self.rect(x, y, w, h, TILE if action == "camera" else PANEL)
+                self._outline(x, y, w, h, MINT if action == "camera" else LINE)
                 if action in ("slower", "faster"):
                     self.text(label, x + 11, y + 6, 15, GOLD)
                 else:
                     self.text(label, x + 8, y + 9, 13, PAPER)
                 if key:
                     self.text(key, x + w - 16, y + 10, 12, MINT)
-        self.text("Ritmo del vagón", panel_x + 17, 537, 14, MUTED)
-        self.text(f"{park.ride_speed / 0.045:.1f} ×", panel_x + 17, 558, 21, PAPER)
+        self.text("Ritmo del tren", panel_x + 17, 537, 14, MUTED)
+        self.text(f"{park.ride_speed / DEFAULT_RIDE_SPEED:.1f} ×", panel_x + 17, 558, 21, PAPER)
         if not self.depth_test:
             self.text("Z · Profundidad desactivada", panel_x + 17, 588, 13, GOLD)
         if not self.smooth_shading:
@@ -169,8 +172,20 @@ class InterfaceMixin:
         footer = self.height - self.footer_height
         self.rect(0, footer, self.width, self.footer_height, DEEP)
         self.rect(0, footer, self.width, 1, LINE)
-        self.text("Arrastra para orbitar     ·     Rueda para acercar     ·     Inicio centra la vista",
-                  23, footer + 14, 14, MUTED)
+        if rider_camera:
+            ride = self.onboard_ride
+            if ride:
+                seat_label = "Cabina" if ride == 1 else "Caballo"
+                label = f"{seat_label} {self.onboard_seats[ride] + 1:02d} / {self.onboard_seat_count}"
+            else:
+                label = "Primer vagón"
+            self.rect(18, footer - 52, 170, 34, DEEP)
+            self.text(label, 30, footer - 44, 14, PAPER)
+            seat_hint = "   ·   Tab cambia de asiento" if ride else ""
+            hint = f"Arrastra para mirar   ·   C para bajar{seat_hint}   ·   F11 vista inmersiva"
+        else:
+            hint = "Arrastra para orbitar   ·   Rueda para acercar   ·   C para subir   ·   F11 vista inmersiva"
+        self.text(hint, 23, footer + 14, 14, MUTED)
         status = "En pausa" if park.paused else "Simulación activa"
         self.rect(self.width - 161, footer + 20, 6, 6, GOLD if park.paused else MINT)
         self.text(status, self.width - 148, footer + 14, 14, PAPER)
@@ -201,14 +216,17 @@ class InterfaceMixin:
         self.text("Guía de exploración", 32, 96, 32, PAPER)
         self.text("Teclas y controles del parque y su laboratorio 2D.", 33, 141, 16, MUTED)
         groups = (
-            ("Cámara y animación", ("Arrastrar / rueda   Orbitar y acercar", "C   Cámara a bordo del vagón",
-                                   "Espacio   Pausar o reanudar", "− / +   Ajustar velocidad", "Inicio   Restablecer cámara")),
+            ("Cámara y animación", ("1 / 2 / 3   Seleccionar atracción", "C   Subir a la atracción o bajar",
+                                   "Arrastrar   Orbitar o mirar desde el asiento", "Tab   Cambiar de cabina o caballo",
+                                   "F11   Vista inmersiva  ·  Inicio   Vista general",
+                                   "Espacio   Pausa  ·  − / +   Velocidad del tren")),
             ("Renderizado", ("L   Cambiar día o noche", "T   Activar o desactivar texturas",
                              "O   Cambiar de proyección", "M   Alternar relleno y malla", "Z   Comparar con y sin Z-buffer",
                              "G   Comparar sombreado plano y suave")),
             ("Laboratorio 2D", ("Clic en el plano   Agregar punto para Graham",
                                 "Arrastrar un punto de control   Editar la B-spline", "B   Cambiar capa de algoritmos",
-                                "X   Cambiar transformación 2D", "V   Recorte  ·  F   Antialiasing  ·  R   Reiniciar")),
+                                "− / +   Cambiar altura del punto elegido", "X   Cambiar transformación 2D",
+                                "V   Recorte  ·  F   Antialiasing  ·  R   Reiniciar")),
             ("Hardware y aplicaciones", ("La CPU calcula curvas, modelos y animación.",
                                           "OpenGL usa la GPU para proyectar y rasterizar.",
                                           "Las mismas técnicas sirven en CAD y simulación.",

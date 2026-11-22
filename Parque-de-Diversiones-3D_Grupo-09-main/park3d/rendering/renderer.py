@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from math import acos, cos, degrees, dist, hypot, pi, sin, tau
+from math import acos, atan2, cos, degrees, dist, hypot, pi, sin, tau
 from random import Random
 
 import pygame
@@ -12,13 +12,14 @@ from OpenGL.GLU import gluCylinder, gluDisk, gluLookAt, gluNewQuadric, gluPerspe
 from park3d.rendering.interface import INK, PAPER, InterfaceMixin
 from park3d.rendering.studio import EditorMixin
 from park3d.rides.attractions import AttractionsMixin
+from park3d.rides.seats import CAROUSEL_HORSES, WHEEL_GONDOLAS, carousel_horse_frame, wheel_gondola_anchor
 from park3d.scenery.landscape import LandscapeMixin
 
 
-CAMERA_HOME = {"yaw": 0.61, "pitch": 0.40, "distance": 32.5}
-OVERVIEW_TARGET = (0.0, 1.50, 0.1)
+CAMERA_HOME = {"yaw": 0.62, "pitch": 0.48, "distance": 43.5}
+OVERVIEW_TARGET = (1.4, 2.0, -1.4)
 RIDE_VIEWS = (
-    ((0.0, 1.85, 0.0), 0.60, 0.44, 22.0),
+    ((1.2, 2.1, -1.4), 0.59, 0.47, 37.5),
     ((7.0, 3.9, -7.0), 0.82, 0.24, 16.5),
     ((-7.1, 1.8, 5.5), 0.45, 0.26, 12.5),
 )
@@ -37,6 +38,9 @@ class Renderer(InterfaceMixin, EditorMixin, AttractionsMixin, LandscapeMixin):
         self.depth_test = self.smooth_shading = True
         self.wireframe = False
         self.selected_ride = None
+        self.immersive = False
+        self.onboard_seats = [0, 2, 0]
+        self.onboard_yaw = self.onboard_pitch = 0.0
         self.gl_version = (glGetString(GL_VERSION) or b"").decode(errors="replace").split(" ")[0]
         self.gl_device = (glGetString(GL_RENDERER) or b"").decode(errors="replace")[:44]
         self.quadric = gluNewQuadric()
@@ -226,12 +230,16 @@ class Renderer(InterfaceMixin, EditorMixin, AttractionsMixin, LandscapeMixin):
     def world_to_editor(self, point):
         left, top, right, bottom = self.editor_bounds
         x, z = point
-        return left + (x + 10) / 20 * (right - left), bottom - (z + 10) / 20 * (bottom - top)
+        span = self.editor_extent
+        return (left + (x + span) / (2 * span) * (right - left),
+                bottom - (z + span) / (2 * span) * (bottom - top))
 
     def editor_to_world(self, point):
         left, top, right, bottom = self.editor_bounds
         x, y = point
-        return (x - left) / (right - left) * 20 - 10, (bottom - y) / (bottom - top) * 20 - 10
+        span = self.editor_extent
+        return ((x - left) / (right - left) * (2 * span) - span,
+                (bottom - y) / (bottom - top) * (2 * span) - span)
 
     def _sky_geometry(self):
         """Cúpula graduada con velos de nubes o estrellas según la hora."""
@@ -333,37 +341,89 @@ class Renderer(InterfaceMixin, EditorMixin, AttractionsMixin, LandscapeMixin):
         glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 30)
         glEnable(GL_FOG)
         glFogi(GL_FOG_MODE, GL_LINEAR)
-        glFogf(GL_FOG_START, 24)
-        glFogf(GL_FOG_END, 93)
+        glFogf(GL_FOG_START, 32)
+        glFogf(GL_FOG_END, 101)
         glFogfv(GL_FOG_COLOR, (*(DAY_HAZE if self.day_mode else NIGHT_HAZE), 1))
 
+    @property
+    def onboard_ride(self):
+        return 0 if self.selected_ride is None else self.selected_ride
+
+    @property
+    def onboard_seat_count(self):
+        return (1, WHEEL_GONDOLAS, CAROUSEL_HORSES)[self.onboard_ride]
+
+    def reset_onboard_look(self):
+        self.onboard_yaw = self.onboard_pitch = 0.0
+
+    def next_onboard_seat(self):
+        index = self.onboard_ride
+        self.onboard_seats[index] = (self.onboard_seats[index] + 1) % self.onboard_seat_count
+        self.reset_onboard_look()
+
+    def onboard_view(self, park):
+        """Devuelve ojo, objetivo y campo visual en la pose del asiento actual."""
+        ride = self.onboard_ride
+        seat = self.onboard_seats[ride]
+        if ride == 1:
+            x, y, z = wheel_gondola_anchor(park.wheel_angle, seat)
+            eye = (x + 0.055, y - 0.404, z)
+            heading, pitch, fov = 0.14, -0.13, 70
+        elif ride == 2:
+            (x, y, z), heading = carousel_horse_frame(park.carousel_angle, seat)
+            eye = (x + 0.09 * cos(heading) - 0.14 * sin(heading), y + 0.72,
+                   z - 0.09 * sin(heading) - 0.14 * cos(heading))
+            heading, pitch, fov = heading + 0.42, -0.25, 66
+        else:
+            (x, y, z), heading, pitch = park.coaster_pose()
+            eye = (x, y + 0.77, z)
+            lookahead = 2.25 / max(park.track_length, 1.0)
+            future_x, _, future_z = park.track_position(park.ride_progress + lookahead)
+            target_x, target_z = future_x - x, future_z - z
+            if hypot(target_x, target_z) > 0.1:
+                heading = atan2(target_x, target_z)
+            pitch, fov = 0.75 * pitch - 0.09, 65
+        heading += self.onboard_yaw
+        pitch = max(-1.34, min(1.34, pitch + self.onboard_pitch))
+        dx, dy, dz = sin(heading) * cos(pitch), sin(pitch), cos(heading) * cos(pitch)
+        return eye, (eye[0] + dx, eye[1] + dy, eye[2] + dz), fov
+
     def _begin_scene(self, park, camera, rider_camera):
-        height = max(1, self.height - self.header_height - self.footer_height)
         width_px, height_px = self.physical_size
-        glViewport(0, round(self.footer_height * height_px / self.height),
-                   round(self.scene_width * width_px / self.width), round(height * height_px / self.height))
+        if self.immersive:
+            view_width, view_height, bottom = width_px, height_px, 0
+        else:
+            height = max(1, self.height - self.header_height - self.footer_height)
+            view_width = round(self.scene_width * width_px / self.width)
+            view_height = round(height * height_px / self.height)
+            bottom = round(self.footer_height * height_px / self.height)
+        glViewport(0, bottom, view_width, view_height)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
-        aspect = self.scene_width / height
+        aspect = view_width / max(1, view_height)
         distance = camera["distance"]
-        if self.perspective or rider_camera:
-            gluPerspective(61 if rider_camera else 47, aspect, 0.08, 170)
+        if rider_camera:
+            eye, target, fov = self.onboard_view(park)
+            gluPerspective(fov, aspect, 0.045, 170)
+        elif self.perspective:
+            gluPerspective(47, aspect, 0.08, 170)
         else:
             span = max(4, distance * 0.40)
             glOrtho(-span * aspect, span * aspect, -span, span, 0.08, 170)
         glMatrixMode(GL_MODELVIEW)
         glLoadIdentity()
-        if rider_camera:
-            (x, y, z), heading, pitch = park.coaster_pose()
-            eye = (x, y + 0.76, z)
-            target = (x + sin(heading) * 5, eye[1] + 4.0 * sin(pitch) - 0.28, z + cos(heading) * 5)
-        else:
+        up = (0, 1, 0)
+        if not rider_camera:
             yaw, pitch = camera["yaw"], camera["pitch"]
             target = camera.get("target", OVERVIEW_TARGET)
             eye = (target[0] + distance * cos(pitch) * sin(yaw), target[1] + distance * sin(pitch),
                    target[2] + distance * cos(pitch) * cos(yaw))
-        gluLookAt(*eye, *target, 0, 1, 0)
+        elif self.onboard_ride == 0:
+            yaw = atan2(target[0] - eye[0], target[2] - eye[2])
+            bank = 0.55 * park.track_bank()
+            up = (-cos(yaw) * sin(bank), cos(bank), sin(yaw) * sin(bank))
+        gluLookAt(*eye, *target, *up)
         glDisable(GL_FOG)
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
         glShadeModel(GL_SMOOTH)
@@ -389,7 +449,8 @@ class Renderer(InterfaceMixin, EditorMixin, AttractionsMixin, LandscapeMixin):
         self.draw_visitors(park.elapsed)
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL)
         glViewport(0, 0, *self.physical_size)
-        self._draw_park_hud(park, rider_camera)
+        if not self.immersive:
+            self._draw_park_hud(park, rider_camera)
 
     def _ride_shadows(self, park):
         """Proyección direccional recortada al suelo con profundidad y stencil."""
@@ -414,7 +475,7 @@ class Renderer(InterfaceMixin, EditorMixin, AttractionsMixin, LandscapeMixin):
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
         glColor4f(0.12, 0.16, 0.17, 0.29)
         glBegin(GL_QUADS)
-        for x, z in ((-14, -14), (-14, 14), (14, 14), (14, -14)):
+        for x, z in ((-21, -21), (-21, 18), (21, 18), (21, -21)):
             glVertex3f(x, plane, z)
         glEnd()
         glPopAttrib()
