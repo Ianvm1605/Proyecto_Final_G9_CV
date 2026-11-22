@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-label="Esquema de la interfaz de Parque Visual 3D">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#08102b"/><stop offset="1" stop-color="#14254a"/></linearGradient></defs>
+  <rect width="1200" height="500" fill="url(#bg)" rx="24"/>
+  <rect x="30" y="28" width="1140" height="58" rx="12" fill="#071020"/>
+  <text x="60" y="64" fill="#2ce6db" font-family="Segoe UI, sans-serif" font-size="27" font-weight="700">PARQUE VISUAL</text>
+  <text x="350" y="63" fill="#a8bfd5" font-family="Segoe UI, sans-serif" font-size="15">PARQUE 3D · EDITOR 2D · ALGORITMOS · AYUDA</text>
+  <rect x="30" y="110" width="800" height="350" rx="16" fill="#10384a"/>
+  <path d="M80 370 C180 180 260 410 360 270 S520 140 620 285 S740 370 790 180" fill="none" stroke="#ff4f92" stroke-width="10"/>
+  <circle cx="650" cy="260" r="78" fill="none" stroke="#ffc037" stroke-width="12"/>
+  <path d="M650 182V338M572 260H728M596 205L704 315M704 205L596 315" stroke="#80e7e7" stroke-width="5"/>
+  <rect x="855" y="110" width="315" height="350" rx="16" fill="#0d1731"/>
+  <text x="882" y="151" fill="#2ce6db" font-family="Segoe UI, sans-serif" font-size="18" font-weight="700">TABLERO DEL PARQUE</text>
+  <rect x="882" y="176" width="172" height="28" rx="14" fill="#2ce6db"/>
+  <text x="899" y="196" fill="#071020" font-family="Segoe UI, sans-serif" font-size="13" font-weight="700">EN MOVIMIENTO</text>
+  <text x="882" y="244" fill="#a8bfd5" font-family="Segoe UI, sans-serif" font-size="15">Montaña rusa B-spline</text>
+  <text x="882" y="280" fill="#edf8ff" font-family="Segoe UI, sans-serif" font-size="15">Textura: activa</text>
+  <text x="882" y="312" fill="#edf8ff" font-family="Segoe UI, sans-serif" font-size="15">Luz: día</text>
+  <text x="882" y="344" fill="#edf8ff" font-family="Segoe UI, sans-serif" font-size="15">Cámara: panorámica</text>
+  <text x="60" y="430" fill="#edf8ff" font-family="Segoe UI, sans-serif" font-size="16">B-spline</text>
+  <text x="565" y="375" fill="#ffc037" font-family="Segoe UI, sans-serif" font-size="16">Rueda de la fortuna</text>
+</svg>
