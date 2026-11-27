@@ -7,6 +7,7 @@ and the rides retain a common plan, with terrain rolling off beyond the fence.
 from __future__ import annotations
 
 from math import atan2, cos, degrees, hypot, pi, sin
+from pathlib import Path
 from random import Random
 
 from OpenGL.GL import (
@@ -23,6 +24,7 @@ from OpenGL.GL import (
 from OpenGL.GLU import gluBuild2DMipmaps, gluSphere
 
 from park3d.geometry.algorithms import bezier_point, sample_bezier
+from park3d.assets import load_texture
 
 GRASS = (0.49, 0.60, 0.35)
 PATH = (0.86, 0.78, 0.67)
@@ -59,6 +61,9 @@ class LandscapeMixin:
             name: self._land_texture(name)
             for name in ("grass", "stone", "brick")
         }
+        brick_image = Path(__file__).resolve().parents[2] / "assets" / "textures" / "brick_sample.png"
+        if brick_image.is_file():
+            self.landscape_materials["brick"] = load_texture(brick_image)
         for label in ("PARQUE VISUAL", "MIRADOR", *(kiosk[3] for kiosk in KIOSKS)):
             self._text_texture(label, 30, LETTERING)
 

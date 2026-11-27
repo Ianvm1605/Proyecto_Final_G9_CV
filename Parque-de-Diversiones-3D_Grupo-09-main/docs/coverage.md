@@ -9,7 +9,7 @@ Esta tabla sirve como guía de demostración e informe: cada concepto no sólo s
 | 3 | Rasterización, DDA/Bresenham, punto medio | `B` cambia a Rasterización, donde se comparan tres métodos de línea y dos de circunferencia. |
 | 4 | Color, relleno, grosor, aliasing | Relleno de la envolvente, grosores de las capas y comparación con `F` del suavizado por cobertura. |
 | 5 | Transformaciones 2D, homogéneas | `X` muestra y aplica matrices de traslación, rotación, escala, reflexión y cizalla. |
-| 6 | Transformaciones 3D, cámara, volumen | Cámara orbital y cámaras ligadas al tren, a una góndola y a un caballo. Arrastrar a bordo modifica la orientación local de la mirada. |
+| 6 | Transformaciones 3D, cámara, volumen | En el editor, `B` cambia a Matrices 3D y `X` recorre traslación, rotación, escala y composición sobre un cubo; el parque permite comparar cámaras orbitales y a bordo. |
 | 7 | Proyecciones | Tecla `O`: perspectiva u ortográfica. |
 | 8 | Integración Unidad I | Modo Editor 2D, demostración y control de recorte. |
 | 9 | Curvas, superficies, continuidad | B-spline cúbica tridimensional cerrada, perfiles de altura editables y desplazamiento por longitud de arco. |
@@ -17,8 +17,8 @@ Esta tabla sirve como guía de demostración e informe: cada concepto no sólo s
 | 11 | B-Rep | Casetas y entrada compuestas por vértices, aristas y caras. |
 | 12 | CSG | Bóveda de ladrillo generada directamente como la frontera de la diferencia de dos perfiles extruidos. |
 | 13 | Ocultamiento | Comparación del Z-buffer con `Z`, descarte de caras posteriores y modo de malla con `M`. |
-| 14 | Mapeado y texturas | Mapas de bits procedurales para césped, pavimento y ladrillo, coordenadas UV y tecla `T`. |
-| 15 | Iluminación, sombreado y color | Luz ambiental, difusa y especular, color RGB, faroles, sombras planares y controles `G` y `L`. |
+| 14 | Mapeado y texturas | Coordenadas UV, mapas procedurales y un bitmap cargado desde `assets/textures/brick_sample.png`; tecla `T` compara textura y color plano. |
+| 15 | Iluminación, sombreado y color | Luz ambiental, difusa y especular, color RGB/HSV, faroles, sombras planares y controles `G` y `L`; en el editor, `B` cambia a Color RGB / HSV. |
 | 16 | Cierre | Temario de la aplicación y guion para la demostración integrada. |
 
 ## Guion recomendado para la demostración

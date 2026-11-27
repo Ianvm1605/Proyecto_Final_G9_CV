@@ -13,6 +13,8 @@ from park3d.geometry.algorithms import (
     koch_curve, midpoint_circle, sample_bezier,
 )
 from park3d.geometry.transforms import identity3, rotate2, scale2, shear2, transform2, translate2
+from park3d.geometry.color_models import hsv_to_rgb, rgb_to_hsv
+from park3d.geometry.transforms3d import multiply4, rotation_y, scale3, transform_point, translation3
 
 if TYPE_CHECKING:
     from park3d.scene.park import ParkModel
@@ -29,7 +31,7 @@ CORAL = (0.98, 0.54, 0.43, 1.0)
 SAND = (0.95, 0.8, 0.52, 1.0)
 LILAC = (0.76, 0.67, 0.91, 1.0)
 
-LAYERS = ("Plano", "Rasterización", "Curvas", "Matrices 2D")
+LAYERS = ("Plano", "Rasterización", "Curvas", "Matrices 2D", "Matrices 3D", "Color RGB / HSV")
 TRANSFORMS = (
     ("Identidad", identity3()),
     ("Traslación", translate2(3, 2)),
@@ -37,6 +39,13 @@ TRANSFORMS = (
     ("Escala · 1.4 × 0.7", scale2(1.4, 0.7)),
     ("Reflexión · eje Z", scale2(-1, 1)),
     ("Cizallamiento", shear2(0.7, 0)),
+)
+TRANSFORMS_3D = (
+    ("Traslación 3D", translation3(1.5, 0.5, 0.7)),
+    ("Rotación Y · 35°", rotation_y(35)),
+    ("Escala 3D", scale3(1.35, 0.75, 0.9)),
+    ("Composición T·R·S", multiply4(translation3(0.8, 0.4, 0),
+                                    multiply4(rotation_y(28), scale3(1.2, 0.8, 1.0)))),
 )
 BEZIER_PATH = sample_bezier([(-8, -6), (-2, -2), (3, -9), (8, -4)])
 KOCH_PATH = koch_curve((-7, 1), (7, 1), 3)
@@ -47,6 +56,7 @@ class EditorMixin:
 
     editor_layer = 0
     editor_transform = 0
+    editor_transform3d = 0
     editor_selected_control: int | None = None
 
     @property
@@ -89,10 +99,13 @@ class EditorMixin:
     def cycle_editor_transform(self) -> None:
         if self.editor_layer == 3:
             self.editor_transform = (self.editor_transform + 1) % len(TRANSFORMS)
-        self.editor_layer = 3
+        elif self.editor_layer == 4:
+            self.editor_transform3d = (self.editor_transform3d + 1) % len(TRANSFORMS_3D)
+        else:
+            self.editor_layer = 3
 
     def reset_editor_demos(self) -> None:
-        self.editor_layer = self.editor_transform = 0
+        self.editor_layer = self.editor_transform = self.editor_transform3d = 0
         self.editor_selected_control = None
 
     def adjust_editor_height(self, park: ParkModel, change: float) -> None:
@@ -218,6 +231,37 @@ class EditorMixin:
             self._map_mark(source, SAGE, 5)
             self._map_mark(result, SAND, 7)
 
+    def _studio_matrices3d(self) -> None:
+        _, matrix = TRANSFORMS_3D[self.editor_transform3d]
+        vertices = ((-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1),
+                    (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1))
+        edges = ((0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4),
+                 (0, 4), (1, 5), (2, 6), (3, 7))
+
+        def project(point):
+            x, y, z = point
+            return (x - z * 0.58) * 2.2, (y + z * 0.38) * 2.2
+
+        original = [project(point) for point in vertices]
+        moved = [project(transform_point(point, matrix)) for point in vertices]
+        for a, b in edges:
+            self._map_line((original[a], original[b]), SAGE, 1.5)
+            self._map_line((moved[a], moved[b]), JADE, 2.5)
+        for point in moved:
+            self._map_mark(point, SAND, 5)
+
+    def _studio_color(self) -> None:
+        hues = (0, 35, 70, 145, 205, 275)
+        for index, hue in enumerate(hues):
+            rgb = hsv_to_rgb((hue, 0.72, 0.92))
+            x, y = -8.2 + index * 2.65, 4.3
+            self._map_line(((x, y), (x + 1.8, y)), (*rgb, 1.0), 12)
+            converted = rgb_to_hsv(rgb)
+            self._map_mark((x + 0.9, y), CREAM, 4)
+            label_x, label_y = self.world_to_editor((x, y - 1.25))
+            self.text(f"{round(converted[0])}°", label_x, label_y, 11, CREAM)
+        self.text("Mismo color: RGB ↔ HSV", *self.world_to_editor((-8.4, -1.2)), 14, CREAM)
+
     def _studio_clip(self) -> None:
         scale = self.editor_extent / 10
         bounds = tuple(value * scale for value in (-4, -9, 4, -4))
@@ -235,6 +279,8 @@ class EditorMixin:
             ((SAND, "Cada cuadrado representa un píxel calculado"),),
             ((CORAL, "B-spline cúbica"), (LILAC, "Bézier"), (JADE, "Fractal de Koch")),
             ((SAGE, "Antes"), (JADE, "Transformado")),
+            ((SAGE, "Cubo original"), (JADE, "Transformado · proyección isométrica")),
+            ((CORAL, "RGB generado desde HSV"), (CREAM, "Tono en grados")),
         )
         for color, label in legends[self.editor_layer]:
             self.rect(x, y + 6, 7, 7, color)
@@ -290,9 +336,11 @@ class EditorMixin:
         self.rect(left, top, panel_width, bottom - top, CARD)
         self.text("HERRAMIENTAS", left + 17, top + 16, 13, SAGE)
         name, matrix = TRANSFORMS[self.editor_transform]
+        if self.editor_layer == 4:
+            name, _ = TRANSFORMS_3D[self.editor_transform3d]
         buttons = {
             "layer": ("B", LAYERS[self.editor_layer]),
-            "transform": ("X", name if self.editor_layer == 3 else "Transformaciones 2D"),
+            "transform": ("X", name if self.editor_layer in (3, 4) else "Transformaciones 2D / 3D"),
             "clip": ("V", "Recorte activo" if clip_demo else "Recorte de líneas"),
             "aa": ("F", "Suavizado activado" if self.antialias else "Suavizado desactivado"),
             "reset": ("R", "Restaurar plano"),
@@ -307,13 +355,18 @@ class EditorMixin:
             if action in {"layer", "transform"}:
                 self.text("›", x + width - 20, y + (height - 18) / 2, 14, JADE)
         matrix_y = bottom - 123
-        if self.editor_layer == 3:
+        if self.editor_layer in (3, 4):
             self.rect(left + 14, matrix_y - 8, panel_width - 28, 106, WELL)
-            self.text("Matriz homogénea 3 × 3", left + 27, matrix_y + 2, 13, SAGE)
+            matrix = matrix if self.editor_layer == 3 else TRANSFORMS_3D[self.editor_transform3d][1]
+            self.text("Matriz homogénea 3 × 3" if self.editor_layer == 3 else "Matriz homogénea 4 × 4",
+                      left + 27, matrix_y + 2, 13, SAGE)
             for row, values in enumerate(matrix):
                 for column, value in enumerate(values):
-                    self.text(f"{0 if abs(value) < .005 else value:.2f}", left + 29 + column * 54,
-                              matrix_y + 28 + row * 18, 12, CREAM)
+                    self.text(f"{0 if abs(value) < .005 else value:.2f}", left + 24 + column * 48,
+                              matrix_y + 25 + row * 15, 11, CREAM)
+        elif self.editor_layer == 5:
+            self.text("HSV define tono, saturación y valor.", left + 17, matrix_y + 15, 13, CREAM)
+            self.text("Las muestras muestran su conversión a RGB.", left + 17, matrix_y + 38, 12, SAGE)
         elif self.editor_layer == 1:
             self.text("Algoritmos de dibujo", left + 17, matrix_y + 14, 15, CREAM)
             self.text("Compara las rectas y los círculos", left + 17, matrix_y + 46, 13, SAGE)
@@ -335,6 +388,8 @@ class EditorMixin:
                 "Compara los píxeles generados por cada algoritmo en la cuadrícula.",
                 "Compara curvas paramétricas y fractales. Los puntos arena editan la B-spline.",
                 "Cambia de operación para comparar la figura original con la transformada.",
+                "Recorre matrices 4 × 4 y observa el cambio de forma en el cubo.",
+                "Compara muestras HSV con sus canales RGB equivalentes.",
             )
             self.text(guides[self.editor_layer], left, 127, 14, SAGE)
         self.rect(left, top, right - left, bottom - top, CARD)
@@ -347,8 +402,12 @@ class EditorMixin:
             self._studio_raster()
         elif self.editor_layer == 2:
             self._studio_curves(park)
-        else:
+        elif self.editor_layer == 3:
             self._studio_matrices()
+        elif self.editor_layer == 4:
+            self._studio_matrices3d()
+        else:
+            self._studio_color()
         if clip_demo:
             self._studio_clip()
         self._studio_legend(left + 15, bottom - 20)

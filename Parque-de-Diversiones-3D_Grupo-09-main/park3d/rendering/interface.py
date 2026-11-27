@@ -32,7 +32,7 @@ LESSONS = (
     ("Rasterización", "DDA, Bresenham y punto medio"),
     ("Atributos de dibujo", "Relleno, grosor y antialiasing"),
     ("Matrices homogéneas", "Transformaciones 2D"),
-    ("Cámara y espacio 3D", "Cámaras a bordo en tres atracciones"),
+    ("Transformaciones 3D", "Matrices 4 × 4, cámara y volumen"),
     ("Proyecciones", "Perspectiva y ortográfica"),
     ("Integración 2D", "Editor y recorte Cohen–Sutherland"),
     ("Curvas y continuidad", "Circuito B-spline y perfil de altura"),
@@ -40,8 +40,8 @@ LESSONS = (
     ("Representación de fronteras", "Caras y normales de las casetas"),
     ("Sólidos constructivos", "Cavidad del túnel"),
     ("Visibilidad", "Z-buffer y culling"),
-    ("Mapeado y texturas", "UV de césped y pavimentos"),
-    ("Luz, sombreado y color", "Materiales, día y noche"),
+    ("Mapeado y texturas", "UV y textura bitmap cargada desde archivo"),
+    ("Luz, sombreado y color", "Iluminación, RGB y conversión HSV"),
     ("Demostración final", "Editor, circuito y diagnóstico"),
 )
 

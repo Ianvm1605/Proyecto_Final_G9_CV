@@ -10,6 +10,11 @@ from .algorithms import (
     sample_bezier,
     sample_bspline,
 )
+from .color_models import hsv_to_rgb, rgb_to_hsv
+from .transforms3d import (
+    identity4, multiply4, rotation_x, rotation_y, rotation_z, scale3,
+    transform_point, translation3,
+)
 
 __all__ = [
     "bezier_point",
@@ -20,4 +25,14 @@ __all__ = [
     "midpoint_circle",
     "sample_bezier",
     "sample_bspline",
+    "hsv_to_rgb",
+    "rgb_to_hsv",
+    "identity4",
+    "multiply4",
+    "rotation_x",
+    "rotation_y",
+    "rotation_z",
+    "scale3",
+    "transform_point",
+    "translation3",
 ]
